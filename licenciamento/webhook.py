@@ -5,7 +5,7 @@ import os
 
 webhook_bp = Blueprint("webhook", __name__)
 DB_PATH = "database/licencas.json"
-SEGREDO_HOTMART = "HOTMART_TOKEN_TESTE_DEV"
+SEGREDO_HOTMART = "UByHSJJcYrDLXkaMJT3IQq17cYkcgW8dfa138a-b9d4-4991-97b5-7a3c13354508"
 
 def salvar_licencas(dados):
     with open(DB_PATH, "w") as f:
