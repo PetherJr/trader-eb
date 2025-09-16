@@ -1,8 +1,8 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 🔗 Pega o endereço do banco (vem da variável de ambiente DATABASE_URL no Render)
+# 🔗 Pega o endereço do banco (vem do Render -> Environment -> DATABASE_URL)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
@@ -36,7 +36,9 @@ class Plano(Base):
     nome = Column(String, unique=True, nullable=False)   # Mensal, Trimestral, Anual
     dias = Column(Integer, nullable=False)               # Quantos dias de validade
     link_hotmart = Column(String, nullable=False)        # Link de checkout do Hotmart
-    
+
+
+# 📋 Modelo da tabela de configurações de usuário
 class ConfigUsuario(Base):
     __tablename__ = "config_usuarios"
 
@@ -50,7 +52,14 @@ class ConfigUsuario(Base):
     payout_minimo = Column(Integer, default=70)
 
 
-
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)
 def init_db():
+    # Cria as tabelas se ainda não existirem
     Base.metadata.create_all(bind=engine)
+
+    # Garantir que a coluna is_trial exista na tabela licencas
+    with engine.connect() as conn:
+        conn.execute(
+            text("ALTER TABLE licencas ADD COLUMN IF NOT EXISTS is_trial BOOLEAN DEFAULT FALSE;")
+        )
+        conn.commit()
