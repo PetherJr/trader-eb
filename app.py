@@ -1,5 +1,4 @@
 import os
-import threading
 import asyncio
 from flask import Flask
 from licenciamento.webhook import webhook_bp
@@ -32,7 +31,7 @@ from bot import (
 )
 
 app = Flask(__name__)
-app.secret_key = "chave_super_secreta"  # ⚠️ Troque por algo seguro em produção
+app.secret_key = "chave_super_secreta"
 
 # Registrar rotas Flask
 app.register_blueprint(webhook_bp)
@@ -49,42 +48,46 @@ def home():
     return "API do Bot TraderEB OB rodando!"
 
 
-# 🚀 Função para rodar o bot em paralelo com asyncio
-def run_bot():
-    async def main():
-        application = Application.builder().token(BOT_TOKEN).build()
+async def run_flask():
+    from hypercorn.asyncio import serve
+    from hypercorn.config import Config
 
-        # Handlers principais
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("menu", menu_handler))
-        application.add_handler(CommandHandler("plano", plano))
-        application.add_handler(CommandHandler("config", config))
+    config = Config()
+    config.bind = [f"0.0.0.0:{os.environ.get('PORT', 5000)}"]
 
-        # Conversações para edição de configs
-        conv_handler = ConversationHandler(
-            entry_points=[CallbackQueryHandler(callback_handler)],
-            states={
-                EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
-                EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
-                EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
-                EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
-            },
-            fallbacks=[],
-        )
-        application.add_handler(conv_handler)
+    await serve(app, config)
 
-        print("🤖 Bot rodando dentro do Render...")
-        await application.run_polling()
 
-    # Cria e executa o loop de eventos
-    asyncio.run(main())
+async def run_bot():
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("menu", menu_handler))
+    application.add_handler(CommandHandler("plano", plano))
+    application.add_handler(CommandHandler("config", config))
+
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(callback_handler)],
+        states={
+            EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
+            EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
+            EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
+            EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
+        },
+        fallbacks=[],
+    )
+    application.add_handler(conv_handler)
+
+    print("🤖 Bot rodando dentro do Render...")
+    await application.run_polling()
+
+
+async def main():
+    await asyncio.gather(
+        run_flask(),
+        run_bot()
+    )
 
 
 if __name__ == "__main__":
-    # Inicia o bot em uma thread separada
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-
-    # Inicia o Flask (Render precisa do 0.0.0.0 e PORT)
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    asyncio.run(main())
