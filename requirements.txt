@@ -1,7 +1,6 @@
-python-telegram-bot==20.7
+python-telegram-bot==20.7 ; python_version >= "3.11" and python_version < "3.12"
 Flask
 requests
 psycopg2-binary
 SQLAlchemy
 Flask-Login
-; python_version >= "3.11" and python_version < "3.12"
