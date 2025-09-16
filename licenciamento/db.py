@@ -1,8 +1,8 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Date
+from sqlalchemy import create_engine, Column, Integer, String, Date, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 🔗 Pega o endereço do banco (vem do Render -> Environment -> DATABASE_URL)
+# 🔗 Pega o endereço do banco (vem da variável de ambiente DATABASE_URL no Render)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
@@ -24,6 +24,7 @@ class Licenca(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     validade = Column(Date, nullable=False)
+    is_trial = Column(Boolean, default=False)  # 👈 flag para diferenciar trial de pago
 
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)
 def init_db():

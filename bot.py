@@ -3,6 +3,7 @@ from telegram.ext import Application, CommandHandler
 from config.settings import BOT_TOKEN
 from handlers.menu import menu_handler
 
+# 🔗 URL do backend hospedado no Render
 BASE_URL = "https://trader-eb.onrender.com"
 
 async def start(update, context):
@@ -14,14 +15,30 @@ async def start(update, context):
         data = response.json()
 
         if data["status"] == "sem_licenca":
-            await update.message.reply_text("❌ Você ainda não possui uma licença ativa.\nAcesse /menu para comprar.")
+            await update.message.reply_text(
+                "❌ Você ainda não possui uma licença ativa.\nAcesse /menu para comprar."
+            )
+            return
+
+        if data["status"] == "trial":
+            await update.message.reply_text(
+                f"🆓 Você ganhou um teste gratuito de 2 dias!\n"
+                f"Seu acesso expira em {data['expira_em']}."
+            )
             return
 
         if data["status"] == "expirada":
-            await update.message.reply_text(f"⚠️ Sua licença expirou em {data['expira_em']}.\nAcesse /menu para renovar.")
+            await update.message.reply_text(
+                f"⚠️ Sua licença expirou em {data['expira_em']}.\n"
+                "Acesse /menu para renovar."
+            )
             return
 
-        await update.message.reply_text("✅ Licença ativa! Use /menu para continuar.")
+        if data["status"] == "ativa":
+            await update.message.reply_text(
+                "✅ Licença ativa! Use /menu para continuar."
+            )
+            return
 
     except Exception as e:
         await update.message.reply_text(f"❌ Erro ao verificar licença: {e}")
