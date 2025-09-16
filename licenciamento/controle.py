@@ -1,30 +1,22 @@
 from flask import Blueprint, jsonify
 from datetime import datetime
-import json
-import os
+from licenciamento.db import SessionLocal, Licenca, init_db
 
 controle_bp = Blueprint("controle", __name__)
-DB_PATH = "database/licencas.json"
-
-def carregar_licencas():
-    if not os.path.exists(DB_PATH):
-        return {}
-    with open(DB_PATH, "r") as f:
-        return json.load(f)
 
 @controle_bp.route("/verificar/<email>")
 def verificar_licenca(email):
-    licencas = carregar_licencas()
-    email = email.lower()
+    init_db()
+    db = SessionLocal()
+    licenca = db.query(Licenca).filter(Licenca.email == email.lower()).first()
+    db.close()
 
-    validade_str = licencas.get(email)
-    if not validade_str:
+    if not licenca:
         return jsonify({"status": "sem_licenca"})
 
-    validade = datetime.strptime(validade_str, "%Y-%m-%d")
-    hoje = datetime.now()
+    hoje = datetime.now().date()
 
-    if hoje > validade:
-        return jsonify({"status": "expirada", "expira_em": validade_str})
+    if hoje > licenca.validade:
+        return jsonify({"status": "expirada", "expira_em": str(licenca.validade)})
 
-    return jsonify({"status": "ativa", "expira_em": validade_str})
+    return jsonify({"status": "ativa", "expira_em": str(licenca.validade)})

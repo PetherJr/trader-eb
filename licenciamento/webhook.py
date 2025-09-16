@@ -1,22 +1,10 @@
 from flask import Blueprint, request
 from datetime import datetime, timedelta
-import json
-import os
+from licenciamento.db import SessionLocal, Licenca, init_db
 
 webhook_bp = Blueprint("webhook", __name__)
-DB_PATH = "database/licencas.json"
-SEGREDO_HOTMART = "UByHSJJcYrDLXkaMJT3IQq17cYkcgW8dfa138a-b9d4-4991-97b5-7a3c13354508"
 
-def salvar_licencas(dados):
-    with open(DB_PATH, "w") as f:
-        json.dump(dados, f, indent=4)
-
-def carregar_licencas():
-    if not os.path.exists(DB_PATH):
-        return {}
-    with open(DB_PATH, "r") as f:
-        return json.load(f)
-
+SEGREDO_HOTMART = "UByHSJJcYrDLXkaMJT3IQq17cYkcgW8dfa138a-b9d4-4991-97b5-7a3c13354508" 
 @webhook_bp.route("/webhook/hotmart", methods=["POST"])
 def receber_webhook():
     data = request.form.to_dict()
@@ -30,12 +18,19 @@ def receber_webhook():
     if status != "approved":
         return "Compra não aprovada", 200
 
-    dias = 30  # plano mensal por padrão
-    validade = (datetime.now() + timedelta(days=dias)).strftime("%Y-%m-%d")
+    validade = datetime.now() + timedelta(days=30)  # por padrão, 30 dias
 
-    licencas = carregar_licencas()
-    licencas[email] = validade
-    salvar_licencas(licencas)
+    init_db()  # garante que a tabela existe
+    db = SessionLocal()
 
-    print(f"[HOTMART] Licença ativa para {email} até {validade}")
+    licenca = db.query(Licenca).filter(Licenca.email == email).first()
+    if licenca:
+        licenca.validade = validade.date()
+    else:
+        licenca = Licenca(email=email, validade=validade.date())
+        db.add(licenca)
+
+    db.commit()
+    db.close()
+
     return "OK", 200

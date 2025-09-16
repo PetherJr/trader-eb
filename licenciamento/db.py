@@ -1,0 +1,30 @@
+import os
+from sqlalchemy import create_engine, Column, Integer, String, Date
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+# 🔗 Pega o endereço do banco (vem do Render -> Environment -> DATABASE_URL)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("❌ Variável de ambiente DATABASE_URL não encontrada!")
+
+# ⚙️ Conexão com o banco
+engine = create_engine(DATABASE_URL)
+
+# 🔧 Sessão para executar queries
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# 🏗️ Base para criar tabelas
+Base = declarative_base()
+
+# 📋 Modelo da tabela de licenças
+class Licenca(Base):
+    __tablename__ = "licencas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    validade = Column(Date, nullable=False)
+
+# 🚀 Função para criar as tabelas no banco (caso não existam ainda)
+def init_db():
+    Base.metadata.create_all(bind=engine)
