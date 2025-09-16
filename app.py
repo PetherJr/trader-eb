@@ -1,11 +1,19 @@
 import os
 import threading
+import asyncio
 from flask import Flask
 from licenciamento.webhook import webhook_bp
 from licenciamento.controle import controle_bp
 from licenciamento.admin_auth import admin_auth_bp, login_manager
 from licenciamento.admin_planos import admin_planos_bp
-from telegram.ext import Application, CommandHandler, ConversationHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ConversationHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    filters,
+)
 from config.settings import BOT_TOKEN
 from handlers.menu import menu_handler
 from bot import (
@@ -24,7 +32,7 @@ from bot import (
 )
 
 app = Flask(__name__)
-app.secret_key = "chave_super_secreta"  # ⚠️ troque depois por algo seguro
+app.secret_key = "chave_super_secreta"  # ⚠️ Troque por algo seguro em produção
 
 # Registrar rotas Flask
 app.register_blueprint(webhook_bp)
@@ -41,31 +49,35 @@ def home():
     return "API do Bot TraderEB OB rodando!"
 
 
-# 🚀 Função para rodar o bot em paralelo
+# 🚀 Função para rodar o bot em paralelo com asyncio
 def run_bot():
-    application = Application.builder().token(BOT_TOKEN).build()
+    async def main():
+        application = Application.builder().token(BOT_TOKEN).build()
 
-    # Handlers principais
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("menu", menu_handler))
-    application.add_handler(CommandHandler("plano", plano))
-    application.add_handler(CommandHandler("config", config))
+        # Handlers principais
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("menu", menu_handler))
+        application.add_handler(CommandHandler("plano", plano))
+        application.add_handler(CommandHandler("config", config))
 
-    # Conversações de edição de configs
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(callback_handler)],
-        states={
-            EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
-            EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
-            EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
-            EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
-        },
-        fallbacks=[],
-    )
-    application.add_handler(conv_handler)
+        # Conversações para edição de configs
+        conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(callback_handler)],
+            states={
+                EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
+                EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
+                EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
+                EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
+            },
+            fallbacks=[],
+        )
+        application.add_handler(conv_handler)
 
-    print("🤖 Bot rodando dentro do Render...")
-    application.run_polling()
+        print("🤖 Bot rodando dentro do Render...")
+        await application.run_polling()
+
+    # Cria e executa o loop de eventos
+    asyncio.run(main())
 
 
 if __name__ == "__main__":
