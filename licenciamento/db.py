@@ -36,6 +36,19 @@ class Plano(Base):
     nome = Column(String, unique=True, nullable=False)   # Mensal, Trimestral, Anual
     dias = Column(Integer, nullable=False)               # Quantos dias de validade
     link_hotmart = Column(String, nullable=False)        # Link de checkout do Hotmart
+    
+class ConfigUsuario(Base):
+    __tablename__ = "config_usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, unique=True, index=True, nullable=False)  # ID ou username
+    valor_inicial = Column(Integer, default=10)
+    stop_win = Column(Integer, default=0)
+    stop_loss = Column(Integer, default=0)
+    martingale = Column(Boolean, default=False)
+    soros = Column(Boolean, default=False)
+    payout_minimo = Column(Integer, default=70)
+
 
 
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)

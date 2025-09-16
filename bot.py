@@ -1,12 +1,27 @@
 import requests
-from telegram.ext import Application, CommandHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    ConversationHandler,
+    MessageHandler,
+    filters,
+)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from config.settings import BOT_TOKEN
 from handlers.menu import menu_handler
-from licenciamento.db import SessionLocal, Plano
+from licenciamento.db import SessionLocal, ConfigUsuario, Plano, init_db
 
 # 🔗 URL do backend hospedado no Render
 BASE_URL = "https://trader-eb.onrender.com"
+
+# Estados para edição
+(
+    EDIT_VALOR,
+    EDIT_STOP_WIN,
+    EDIT_STOP_LOSS,
+    EDIT_PAYOUT,
+) = range(4)
 
 
 # 🚀 Comando /start
@@ -93,6 +108,144 @@ async def plano(update, context):
         await update.message.reply_text(f"❌ Erro ao verificar plano: {e}")
 
 
+# 🚀 Comando /config
+async def config(update, context):
+    user = update.effective_user
+    identificador = user.username or str(user.id)
+
+    init_db()
+    db = SessionLocal()
+    config = db.query(ConfigUsuario).filter(ConfigUsuario.user_id == identificador).first()
+
+    if not config:
+        config = ConfigUsuario(user_id=identificador)
+        db.add(config)
+        db.commit()
+
+    db.refresh(config)
+    db.close()
+
+    msg = (
+        f"⚙️ Configurações atuais de {identificador}:\n\n"
+        f"💰 Valor inicial: {config.valor_inicial}\n"
+        f"✅ Stop Win: {config.stop_win}\n"
+        f"❌ Stop Loss: {config.stop_loss}\n"
+        f"🔄 Martingale: {'Ativado' if config.martingale else 'Desativado'}\n"
+        f"🎯 Soros: {'Ativado' if config.soros else 'Desativado'}\n"
+        f"📊 Payout mínimo: {config.payout_minimo}%"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("💰 Alterar Valor Inicial", callback_data="edit_valor")],
+        [InlineKeyboardButton("✅ Alterar Stop Win", callback_data="edit_stop_win")],
+        [InlineKeyboardButton("❌ Alterar Stop Loss", callback_data="edit_stop_loss")],
+        [InlineKeyboardButton("🔄 Toggle Martingale", callback_data="toggle_martingale")],
+        [InlineKeyboardButton("🎯 Toggle Soros", callback_data="toggle_soros")],
+        [InlineKeyboardButton("📊 Alterar Payout Mínimo", callback_data="edit_payout")],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(msg, reply_markup=reply_markup)
+
+
+# 🚀 Callback para editar configs
+async def callback_handler(update: Update, context):
+    query = update.callback_query
+    await query.answer()
+    identificador = query.from_user.username or str(query.from_user.id)
+
+    db = SessionLocal()
+    config = db.query(ConfigUsuario).filter(ConfigUsuario.user_id == identificador).first()
+
+    if query.data == "toggle_martingale":
+        config.martingale = not config.martingale
+        db.commit()
+        db.close()
+        await query.edit_message_text("🔄 Martingale atualizado! Use /config para ver as alterações.")
+        return
+
+    if query.data == "toggle_soros":
+        config.soros = not config.soros
+        db.commit()
+        db.close()
+        await query.edit_message_text("🎯 Soros atualizado! Use /config para ver as alterações.")
+        return
+
+    # Estados que exigem input do usuário
+    db.close()
+    if query.data == "edit_valor":
+        await query.edit_message_text("💰 Digite o novo valor inicial:")
+        return EDIT_VALOR
+    elif query.data == "edit_stop_win":
+        await query.edit_message_text("✅ Digite o novo Stop Win:")
+        return EDIT_STOP_WIN
+    elif query.data == "edit_stop_loss":
+        await query.edit_message_text("❌ Digite o novo Stop Loss:")
+        return EDIT_STOP_LOSS
+    elif query.data == "edit_payout":
+        await query.edit_message_text("📊 Digite o novo Payout mínimo (%):")
+        return EDIT_PAYOUT
+
+    return ConversationHandler.END
+
+
+# 🚀 Handlers para salvar inputs do usuário
+async def salvar_valor(update, context):
+    identificador = update.effective_user.username or str(update.effective_user.id)
+    novo_valor = int(update.message.text)
+
+    db = SessionLocal()
+    config = db.query(ConfigUsuario).filter(ConfigUsuario.user_id == identificador).first()
+    config.valor_inicial = novo_valor
+    db.commit()
+    db.close()
+
+    await update.message.reply_text(f"💰 Valor inicial atualizado para {novo_valor}.")
+    return ConversationHandler.END
+
+
+async def salvar_stop_win(update, context):
+    identificador = update.effective_user.username or str(update.effective_user.id)
+    novo_valor = int(update.message.text)
+
+    db = SessionLocal()
+    config = db.query(ConfigUsuario).filter(ConfigUsuario.user_id == identificador).first()
+    config.stop_win = novo_valor
+    db.commit()
+    db.close()
+
+    await update.message.reply_text(f"✅ Stop Win atualizado para {novo_valor}.")
+    return ConversationHandler.END
+
+
+async def salvar_stop_loss(update, context):
+    identificador = update.effective_user.username or str(update.effective_user.id)
+    novo_valor = int(update.message.text)
+
+    db = SessionLocal()
+    config = db.query(ConfigUsuario).filter(ConfigUsuario.user_id == identificador).first()
+    config.stop_loss = novo_valor
+    db.commit()
+    db.close()
+
+    await update.message.reply_text(f"❌ Stop Loss atualizado para {novo_valor}.")
+    return ConversationHandler.END
+
+
+async def salvar_payout(update, context):
+    identificador = update.effective_user.username or str(update.effective_user.id)
+    novo_valor = int(update.message.text)
+
+    db = SessionLocal()
+    config = db.query(ConfigUsuario).filter(ConfigUsuario.user_id == identificador).first()
+    config.payout_minimo = novo_valor
+    db.commit()
+    db.close()
+
+    await update.message.reply_text(f"📊 Payout mínimo atualizado para {novo_valor}%.")
+    return ConversationHandler.END
+
+
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -100,6 +253,20 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", menu_handler))
     app.add_handler(CommandHandler("plano", plano))
+    app.add_handler(CommandHandler("config", config))
+
+    # Conversações para editar configs
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(callback_handler)],
+        states={
+            EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
+            EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
+            EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
+            EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
+        },
+        fallbacks=[],
+    )
+    app.add_handler(conv_handler)
 
     print("🤖 Bot rodando...")
     app.run_polling()
