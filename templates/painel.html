@@ -1,29 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-    <title>Painel Admin - Planos</title>
+    <meta charset="UTF-8">
+    <title>Painel Admin - TraderEB</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- Responsivo -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-    <h2>Gerenciar Planos</h2>
+<body class="bg-light">
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark bg-dark px-3">
+        <span class="navbar-brand mb-0 h1 text-warning">⚙️ TraderEB - Painel Admin</span>
+        <a href="{{ url_for('admin_auth.logout') }}" class="btn btn-outline-warning btn-sm">Sair</a>
+    </nav>
 
-    <form method="POST" action="{{ url_for('admin_planos.criar_plano') }}">
-        <input type="text" name="nome" placeholder="Nome do plano" required>
-        <input type="number" name="dias" placeholder="Dias de validade" required>
-        <input type="url" name="link_hotmart" placeholder="Link Hotmart" required>
-        <button type="submit">Criar Plano</button>
-    </form>
+    <div class="container mt-4">
+        <h3 class="text-dark mb-3">📋 Gerenciar Planos</h3>
 
-    <h3>Planos Existentes</h3>
-    <ul>
-    {% for plano in planos %}
-        <li>
-            {{ plano.nome }} - {{ plano.dias }} dias - <a href="{{ plano.link_hotmart }}" target="_blank">Link</a>
-            <a href="{{ url_for('admin_planos.deletar_plano', plano_id=plano.id) }}">[Excluir]</a>
-        </li>
-    {% endfor %}
-    </ul>
+        <!-- Formulário de criação -->
+        <div class="card p-3 shadow-sm mb-4">
+            <h5 class="text-secondary">➕ Adicionar novo plano</h5>
+            <form method="POST" action="{{ url_for('admin_planos.criar_plano') }}">
+                <div class="row g-2">
+                    <div class="col-12 col-md-3">
+                        <input type="text" name="nome" class="form-control" placeholder="Nome (ex: Mensal)" required>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <input type="number" name="dias" class="form-control" placeholder="Dias" required>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <input type="url" name="link_hotmart" class="form-control" placeholder="Link Hotmart" required>
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-success w-100">Salvar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
 
-    <br>
-    <a href="{{ url_for('admin_auth.logout') }}">Sair</a>
+        <!-- Lista de planos -->
+        <div class="card p-3 shadow-sm">
+            <h5 class="text-secondary">📅 Planos Existentes</h5>
+            {% if planos %}
+                <div class="table-responsive"> <!-- Responsividade para celular -->
+                    <table class="table table-striped align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Nome</th>
+                                <th>Dias</th>
+                                <th>Link Hotmart</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plano in planos %}
+                            <tr>
+                                <td>{{ plano.nome }}</td>
+                                <td>{{ plano.dias }}</td>
+                                <td>
+                                    <a href="{{ plano.link_hotmart }}" target="_blank" class="btn btn-link btn-sm">Abrir</a>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin_planos.deletar_plano', plano_id=plano.id) }}" 
+                                       class="btn btn-danger btn-sm">Excluir</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted">Nenhum plano cadastrado ainda.</p>
+            {% endif %}
+        </div>
+    </div>
 </body>
 </html>
