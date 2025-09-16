@@ -3,9 +3,11 @@ from telegram.ext import Application, CommandHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config.settings import BOT_TOKEN
 from handlers.menu import menu_handler
+from licenciamento.db import SessionLocal, Plano
 
 # 🔗 URL do backend hospedado no Render
 BASE_URL = "https://trader-eb.onrender.com"
+
 
 # 🚀 Comando /start
 async def start(update, context):
@@ -54,9 +56,9 @@ async def plano(update, context):
     identificador = user.username or str(user.id)
 
     try:
+        # Consulta status da licença
         response = requests.get(f"{BASE_URL}/verificar/{identificador}")
         data = response.json()
-
         status = data["status"]
         expira_em = data.get("expira_em", "-")
 
@@ -69,11 +71,19 @@ async def plano(update, context):
         else:
             msg = "❌ Você não possui nenhuma licença ativa."
 
-        # ⚠️ Troque os links abaixo pelos links reais de checkout do Hotmart
+        # 🔎 Busca os planos no banco
+        db = SessionLocal()
+        planos = db.query(Plano).all()
+        db.close()
+
+        if not planos:
+            await update.message.reply_text(msg + "\n\n⚠️ Nenhum plano configurado ainda.")
+            return
+
+        # Gera botões dinamicamente
         keyboard = [
-            [InlineKeyboardButton("📅 Plano Mensal", url="https://hotmart.com/mensal")],
-            [InlineKeyboardButton("📅 Plano Trimestral", url="https://hotmart.com/trimestral")],
-            [InlineKeyboardButton("📅 Plano Anual", url="https://hotmart.com/anual")]
+            [InlineKeyboardButton(f"📅 {p.nome}", url=p.link_hotmart)]
+            for p in planos
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 

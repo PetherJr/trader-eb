@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Painel Admin - Planos</title>
+</head>
+<body>
+    <h2>Gerenciar Planos</h2>
+
+    <form method="POST" action="{{ url_for('admin_planos.criar_plano') }}">
+        <input type="text" name="nome" placeholder="Nome do plano" required>
+        <input type="number" name="dias" placeholder="Dias de validade" required>
+        <input type="url" name="link_hotmart" placeholder="Link Hotmart" required>
+        <button type="submit">Criar Plano</button>
+    </form>
+
+    <h3>Planos Existentes</h3>
+    <ul>
+    {% for plano in planos %}
+        <li>
+            {{ plano.nome }} - {{ plano.dias }} dias - <a href="{{ plano.link_hotmart }}" target="_blank">Link</a>
+            <a href="{{ url_for('admin_planos.deletar_plano', plano_id=plano.id) }}">[Excluir]</a>
+        </li>
+    {% endfor %}
+    </ul>
+
+    <br>
+    <a href="{{ url_for('admin_auth.logout') }}">Sair</a>
+</body>
+</html>
