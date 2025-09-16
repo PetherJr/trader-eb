@@ -13,7 +13,7 @@ from handlers.menu import menu_handler
 from licenciamento.db import SessionLocal, ConfigUsuario, Plano, init_db
 
 # 🔗 URL do backend hospedado no Render
-BASE_URL = "https://trader-eb.onrender.com"
+BASE_URL = "https://trader-eb-1.onrender.com"
 
 # Estados para edição
 (
