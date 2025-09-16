@@ -4,4 +4,7 @@ requests
 psycopg2-binary
 SQLAlchemy
 Flask-Login
-python_version >= "3.11" and python_version < "3.12"
+
+# Garante que o projeto só roda em Python 3.11
+# Isso força compatibilidade no Render
+; python_version >= "3.11" and python_version < "3.12"
