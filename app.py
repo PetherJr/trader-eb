@@ -1,10 +1,10 @@
 import os
-import asyncio
-from flask import Flask
+from flask import Flask, request
 from licenciamento.webhook import webhook_bp
 from licenciamento.controle import controle_bp
 from licenciamento.admin_auth import admin_auth_bp, login_manager
 from licenciamento.admin_planos import admin_planos_bp
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -48,46 +48,35 @@ def home():
     return "API do Bot TraderEB OB rodando!"
 
 
-async def run_flask():
-    from hypercorn.asyncio import serve
-    from hypercorn.config import Config
+# 🚀 Inicializa o bot
+application = Application.builder().token(BOT_TOKEN).build()
 
-    config = Config()
-    config.bind = [f"0.0.0.0:{os.environ.get('PORT', 5000)}"]
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("menu", menu_handler))
+application.add_handler(CommandHandler("plano", plano))
+application.add_handler(CommandHandler("config", config))
 
-    await serve(app, config)
-
-
-async def run_bot():
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("menu", menu_handler))
-    application.add_handler(CommandHandler("plano", plano))
-    application.add_handler(CommandHandler("config", config))
-
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(callback_handler)],
-        states={
-            EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
-            EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
-            EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
-            EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
-        },
-        fallbacks=[],
-    )
-    application.add_handler(conv_handler)
-
-    print("🤖 Bot rodando dentro do Render...")
-    await application.run_polling()
+conv_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(callback_handler)],
+    states={
+        EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
+        EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
+        EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
+        EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
+    },
+    fallbacks=[],
+)
+application.add_handler(conv_handler)
 
 
-async def main():
-    await asyncio.gather(
-        run_flask(),
-        run_bot()
-    )
+# 🚀 Rota Webhook do Telegram
+@app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    update = Update.de_json(request.get_json(force=True), application.bot)
+    application.update_queue.put_nowait(update)
+    return "OK", 200
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
