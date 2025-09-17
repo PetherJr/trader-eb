@@ -36,7 +36,7 @@ from bot import (
     EDIT_PAYOUT,
 )
 
-# novos estados para sinais
+# novo estado para agendamento de sinais
 AGENDAR_SINAIS = range(1)
 
 # =========================================================
@@ -65,7 +65,6 @@ def home():
 # Telegram Application (em webhook)
 # =========================================================
 BASE_URL = os.getenv("BASE_URL", "https://trader-eb-1.onrender.com")
-
 application = Application.builder().token(BOT_TOKEN).build()
 
 # Handlers principais
@@ -131,7 +130,7 @@ async def listar_sinais(update, context):
 
 
 # =========================================================
-# Callback genérico para botões do menu
+# Callback genérico
 # =========================================================
 async def generic_callback(update, context):
     query = update.callback_query
@@ -181,7 +180,7 @@ async def generic_callback(update, context):
 
 
 # =========================================================
-# Conversa unificada (/config + agendar sinais)
+# Conversa UNIFICADA (/config + agendar sinais)
 # =========================================================
 conv_handler = ConversationHandler(
     entry_points=[
@@ -199,7 +198,7 @@ conv_handler = ConversationHandler(
 )
 application.add_handler(conv_handler)
 
-# Handler genérico para outros botões
+# Handler genérico para os outros botões
 application.add_handler(CallbackQueryHandler(generic_callback, pattern="^(?!edit_|toggle_|agendar_sinais).+"))
 
 
@@ -207,7 +206,6 @@ application.add_handler(CallbackQueryHandler(generic_callback, pattern="^(?!edit
 # Loop assíncrono dedicado
 # =========================================================
 _app_loop = None
-
 def _bot_loop_worker():
     global _app_loop
     _app_loop = asyncio.new_event_loop()
@@ -229,7 +227,7 @@ threading.Thread(target=_bot_loop_worker, daemon=True).start()
 
 
 # =========================================================
-# Rota Webhook para receber updates
+# Rota Webhook
 # =========================================================
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
