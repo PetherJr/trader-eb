@@ -31,7 +31,7 @@ from bot import (
 )
 
 app = Flask(__name__)
-app.secret_key = "chave_super_secreta"
+app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key")
 
 # Registrar rotas Flask
 app.register_blueprint(webhook_bp)
@@ -51,11 +51,13 @@ def home():
 # 🚀 Inicializa o bot
 application = Application.builder().token(BOT_TOKEN).build()
 
+# Handlers principais
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("menu", menu_handler))
 application.add_handler(CommandHandler("plano", plano))
 application.add_handler(CommandHandler("config", config))
 
+# Conversações para edição de configs
 conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(callback_handler)],
     states={
@@ -68,11 +70,16 @@ conv_handler = ConversationHandler(
 )
 application.add_handler(conv_handler)
 
+# 🔑 Inicializa e starta o bot para processar updates recebidos
+application.initialize()
+application.start()
+
 
 # 🚀 Rota Webhook do Telegram
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
     update = Update.de_json(request.get_json(force=True), application.bot)
+    print("📩 Update recebido:", update)  # log para debug no Render
     application.update_queue.put_nowait(update)
     return "OK", 200
 
