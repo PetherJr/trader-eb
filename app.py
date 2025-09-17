@@ -94,6 +94,15 @@ application.add_handler(conv_handler)
 # =========================================================
 # Funções auxiliares de sinais
 # =========================================================
+async def iniciar_agendamento(update, context):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        "✍️ Envie a lista de sinais no formato:\n\nEUR/USD 13:05 CALL 5m\nGBP/JPY 14:10 PUT",
+        parse_mode="Markdown"
+    )
+    return AGENDAR_SINAIS
+
 async def receber_lista_sinais(update, context):
     identificador = update.effective_user.username or str(update.effective_user.id)
     linhas = update.message.text.strip().splitlines()
@@ -102,8 +111,15 @@ async def receber_lista_sinais(update, context):
     for linha in linhas:
         try:
             partes = linha.split()
-            par, horario, direcao, expiracao = partes[0], partes[1], partes[2], partes[3] if len(partes) > 3 else None
-            sinal = Sinal(usuario=identificador, par=par, horario=horario, direcao=direcao.upper(), expiracao=expiracao)
+            par, horario, direcao = partes[0], partes[1], partes[2]
+            expiracao = partes[3] if len(partes) > 3 else None
+            sinal = Sinal(
+                usuario=identificador,
+                par=par,
+                horario=horario,
+                direcao=direcao.upper(),
+                expiracao=expiracao
+            )
             db.add(sinal)
         except Exception:
             continue
@@ -140,10 +156,6 @@ async def generic_callback(update, context):
 
     if data == "sinais_ao_vivo":
         await query.edit_message_text("📡 Modo *Sinais ao Vivo* ativado/desativado (placeholder).", parse_mode="Markdown")
-
-    elif data == "agendar_sinais":
-        await query.edit_message_text("✍️ Envie a lista de sinais no formato:\n\nEUR/USD 13:05 CALL 5m\nGBP/JPY 14:10 PUT", parse_mode="Markdown")
-        return AGENDAR_SINAIS  # entra no estado de captura
 
     elif data == "sinais_agendados":
         await listar_sinais(update, context)
@@ -183,9 +195,10 @@ async def generic_callback(update, context):
     else:
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
 
+
 # Conversa de sinais
 sinais_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(generic_callback, pattern="^(agendar_sinais)$")],
+    entry_points=[CallbackQueryHandler(iniciar_agendamento, pattern="^agendar_sinais$")],
     states={AGENDAR_SINAIS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_lista_sinais)]},
     fallbacks=[],
 )
