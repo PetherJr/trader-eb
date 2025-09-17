@@ -66,6 +66,17 @@ class Taxa(Base):
     nome = Column(String, unique=True, nullable=False)
     valor = Column(String, nullable=False)  # ex.: "80%" ou "1.5"
 
+class Sinal(Base):
+    __tablename__ = "sinais"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario = Column(String, nullable=False)  # username ou ID do Telegram
+    par = Column(String, nullable=False)      # ex.: EUR/USD
+    horario = Column(String, nullable=False)  # ex.: 13:05
+    direcao = Column(String, nullable=False)  # CALL ou PUT
+    expiracao = Column(String, nullable=True) # ex.: 5m
+    ativo = Column(Boolean, default=True)
+
 
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)
 def init_db():

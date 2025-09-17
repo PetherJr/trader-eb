@@ -8,7 +8,7 @@ from licenciamento.admin_auth import admin_auth_bp, login_manager
 from licenciamento.admin_planos import admin_planos_bp
 from licenciamento.admin_estrategias import admin_estrategias_bp
 from licenciamento.admin_taxas import admin_taxas_bp
-from licenciamento.db import SessionLocal, Estrategia, Taxa, init_db  # 👈 agora importa Estrategia e Taxa
+from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, init_db
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -36,6 +36,9 @@ from bot import (
     EDIT_PAYOUT,
 )
 
+# novos estados para sinais
+AGENDAR_SINAIS = range(1)
+
 # =========================================================
 # Flask
 # =========================================================
@@ -46,9 +49,9 @@ app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key")
 app.register_blueprint(webhook_bp)
 app.register_blueprint(controle_bp)
 app.register_blueprint(admin_auth_bp)
-app.register_blueprint(admin_estrategias_bp)  # painel de estratégias
+app.register_blueprint(admin_estrategias_bp)
 app.register_blueprint(admin_planos_bp)
-app.register_blueprint(admin_taxas_bp)  # painel de taxas
+app.register_blueprint(admin_taxas_bp)
 
 # Config login Flask
 login_manager.init_app(app)
@@ -76,9 +79,7 @@ application.add_handler(CommandHandler("config", config))
 # Conversações do /config (apenas botões edit/toggle)
 # =========================================================
 conv_handler = ConversationHandler(
-    entry_points=[
-        CallbackQueryHandler(callback_handler, pattern="^(edit_|toggle_)")
-    ],
+    entry_points=[CallbackQueryHandler(callback_handler, pattern="^(edit_|toggle_)")],
     states={
         EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
         EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
@@ -87,7 +88,46 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[],
 )
-application.add_handler(conv_handler)  # ✅ vem antes do handler genérico
+application.add_handler(conv_handler)
+
+
+# =========================================================
+# Funções auxiliares de sinais
+# =========================================================
+async def receber_lista_sinais(update, context):
+    identificador = update.effective_user.username or str(update.effective_user.id)
+    linhas = update.message.text.strip().splitlines()
+
+    db = SessionLocal()
+    for linha in linhas:
+        try:
+            partes = linha.split()
+            par, horario, direcao, expiracao = partes[0], partes[1], partes[2], partes[3] if len(partes) > 3 else None
+            sinal = Sinal(usuario=identificador, par=par, horario=horario, direcao=direcao.upper(), expiracao=expiracao)
+            db.add(sinal)
+        except Exception:
+            continue
+    db.commit()
+    db.close()
+
+    await update.message.reply_text("✅ Sinais agendados com sucesso!")
+    return ConversationHandler.END
+
+async def listar_sinais(update, context):
+    identificador = update.effective_user.username or str(update.effective_user.id)
+    db = SessionLocal()
+    sinais = db.query(Sinal).filter(Sinal.usuario == identificador, Sinal.ativo == True).all()
+    db.close()
+
+    if not sinais:
+        await update.callback_query.edit_message_text("⚠️ Nenhum sinal agendado no momento.")
+        return
+
+    msg = "🗂️ Sinais agendados:\n\n"
+    for s in sinais:
+        msg += f"- {s.par} {s.horario} {s.direcao} {s.expiracao or ''}\n"
+
+    await update.callback_query.edit_message_text(msg)
 
 
 # =========================================================
@@ -99,23 +139,23 @@ async def generic_callback(update, context):
     data = query.data or ""
 
     if data == "sinais_ao_vivo":
-        await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo* (em breve).", parse_mode="Markdown")
+        await query.edit_message_text("📡 Modo *Sinais ao Vivo* ativado/desativado (placeholder).", parse_mode="Markdown")
 
     elif data == "agendar_sinais":
-        await query.edit_message_text("🗓️ Função *Agendar Sinais* ainda em desenvolvimento.", parse_mode="Markdown")
+        await query.edit_message_text("✍️ Envie a lista de sinais no formato:\n\nEUR/USD 13:05 CALL 5m\nGBP/JPY 14:10 PUT", parse_mode="Markdown")
+        return AGENDAR_SINAIS  # entra no estado de captura
 
     elif data == "sinais_agendados":
-        await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.", parse_mode="Markdown")
+        await listar_sinais(update, context)
 
     elif data == "config":
-        await config(update, context)  # reaproveita função existente
+        await config(update, context)
 
     elif data == "estrategias":
         init_db()
         db = SessionLocal()
         estrategias = db.query(Estrategia).all()
         db.close()
-
         if estrategias:
             msg = "🧠 Estratégias disponíveis:\n\n"
             for e in estrategias:
@@ -125,7 +165,6 @@ async def generic_callback(update, context):
                     msg += f"   {e.descricao}\n"
         else:
             msg = "⚠️ Nenhuma estratégia cadastrada ainda."
-
         await query.edit_message_text(msg)
 
     elif data == "taxas":
@@ -133,21 +172,27 @@ async def generic_callback(update, context):
         db = SessionLocal()
         taxas = db.query(Taxa).all()
         db.close()
-
         if taxas:
             msg = "📊 Taxas cadastradas:\n\n"
             for t in taxas:
                 msg += f"- {t.nome}: {t.valor}\n"
         else:
             msg = "⚠️ Nenhuma taxa cadastrada ainda."
-
         await query.edit_message_text(msg)
 
     else:
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
 
-# ✅ genérico só pega o que não é edit_ ou toggle_
-application.add_handler(CallbackQueryHandler(generic_callback, pattern="^(?!edit_|toggle_).+"))
+# Conversa de sinais
+sinais_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(generic_callback, pattern="^(agendar_sinais)$")],
+    states={AGENDAR_SINAIS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_lista_sinais)]},
+    fallbacks=[],
+)
+application.add_handler(sinais_handler)
+
+# Handler genérico para outros botões
+application.add_handler(CallbackQueryHandler(generic_callback, pattern="^(?!edit_|toggle_|agendar_sinais).+"))
 
 
 # =========================================================
@@ -172,7 +217,6 @@ def _bot_loop_worker():
     print("🤖 Bot inicializado (modo webhook).")
     _app_loop.run_forever()
 
-# Inicia thread dedicada ao bot
 threading.Thread(target=_bot_loop_worker, daemon=True).start()
 
 
@@ -186,9 +230,7 @@ def telegram_webhook():
         update = Update.de_json(data, application.bot)
         print("📩 Update recebido:", data)
 
-        asyncio.run_coroutine_threadsafe(
-            application.process_update(update), _app_loop
-        )
+        asyncio.run_coroutine_threadsafe(application.process_update(update), _app_loop)
         return "OK", 200
     except Exception as e:
         print("❌ Erro no webhook:", e)
