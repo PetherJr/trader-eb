@@ -50,6 +50,15 @@ class ConfigUsuario(Base):
     martingale = Column(Boolean, default=False)
     soros = Column(Boolean, default=False)
     payout_minimo = Column(Integer, default=70)
+    
+class Estrategia(Base):
+    __tablename__ = "estrategias"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, unique=True, nullable=False)
+    descricao = Column(String, nullable=True)
+    ativa = Column(Boolean, default=True)
+
 
 
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)

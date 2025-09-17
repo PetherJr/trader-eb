@@ -6,6 +6,8 @@ from licenciamento.webhook import webhook_bp
 from licenciamento.controle import controle_bp
 from licenciamento.admin_auth import admin_auth_bp, login_manager
 from licenciamento.admin_planos import admin_planos_bp
+from licenciamento.admin_estrategias import admin_estrategias_bp
+from licenciamento.db import SessionLocal, Estrategia, init_db  # 👈 import da tabela
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -43,6 +45,7 @@ app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key")
 app.register_blueprint(webhook_bp)
 app.register_blueprint(controle_bp)
 app.register_blueprint(admin_auth_bp)
+app.register_blueprint(admin_estrategias_bp)  # painel de estratégias
 app.register_blueprint(admin_planos_bp)
 
 # Config login Flask
@@ -95,16 +98,37 @@ async def generic_callback(update, context):
 
     if data == "sinais_ao_vivo":
         await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo* (em breve).", parse_mode="Markdown")
+
     elif data == "agendar_sinais":
         await query.edit_message_text("🗓️ Função *Agendar Sinais* ainda em desenvolvimento.", parse_mode="Markdown")
+
     elif data == "sinais_agendados":
         await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.", parse_mode="Markdown")
+
     elif data == "config":
         await config(update, context)  # reaproveita função existente
+
     elif data == "estrategias":
-        await query.edit_message_text("🧠 Estratégias disponíveis em breve.", parse_mode="Markdown")
+        init_db()
+        db = SessionLocal()
+        estrategias = db.query(Estrategia).all()
+        db.close()
+
+        if estrategias:
+            msg = "🧠 Estratégias disponíveis:\n\n"
+            for e in estrategias:
+                status = "✅ Ativa" if e.ativa else "❌ Inativa"
+                msg += f"- {e.nome} ({status})\n"
+                if e.descricao:
+                    msg += f"   {e.descricao}\n"
+        else:
+            msg = "⚠️ Nenhuma estratégia cadastrada ainda."
+
+        await query.edit_message_text(msg)
+
     elif data == "taxas":
         await query.edit_message_text("📊 Taxas ainda em configuração.", parse_mode="Markdown")
+
     else:
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
 
