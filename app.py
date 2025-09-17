@@ -68,36 +68,6 @@ application.add_handler(CommandHandler("config", config))
 
 
 # =========================================================
-# Callback genérico para botões do menu
-# =========================================================
-async def generic_callback(update, context):
-    query = update.callback_query
-    await query.answer()
-
-    # Ignora botões que pertencem ao /config
-    if query.data.startswith("edit_") or query.data.startswith("toggle_"):
-        return
-
-    if query.data == "sinais_ao_vivo":
-        await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo* (em breve).", parse_mode="Markdown")
-    elif query.data == "agendar_sinais":
-        await query.edit_message_text("🗓️ Função *Agendar Sinais* ainda em desenvolvimento.", parse_mode="Markdown")
-    elif query.data == "sinais_agendados":
-        await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.", parse_mode="Markdown")
-    elif query.data == "config":
-        await config(update, context)
-    elif query.data == "estrategias":
-        await query.edit_message_text("🧠 Estratégias disponíveis em breve.", parse_mode="Markdown")
-    elif query.data == "taxas":
-        await query.edit_message_text("📊 Taxas ainda em configuração.", parse_mode="Markdown")
-    else:
-        await query.edit_message_text(f"⚠️ Botão '{query.data}' não implementado.")
-
-# Registra handler genérico
-application.add_handler(CallbackQueryHandler(generic_callback))
-
-
-# =========================================================
 # Conversações do /config (apenas botões edit/toggle)
 # =========================================================
 conv_handler = ConversationHandler(
@@ -112,7 +82,34 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[],
 )
-application.add_handler(conv_handler)
+application.add_handler(conv_handler)  # ✅ vem antes do handler genérico
+
+
+# =========================================================
+# Callback genérico para botões do menu
+# =========================================================
+async def generic_callback(update, context):
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+
+    if data == "sinais_ao_vivo":
+        await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo* (em breve).", parse_mode="Markdown")
+    elif data == "agendar_sinais":
+        await query.edit_message_text("🗓️ Função *Agendar Sinais* ainda em desenvolvimento.", parse_mode="Markdown")
+    elif data == "sinais_agendados":
+        await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.", parse_mode="Markdown")
+    elif data == "config":
+        await config(update, context)  # reaproveita função existente
+    elif data == "estrategias":
+        await query.edit_message_text("🧠 Estratégias disponíveis em breve.", parse_mode="Markdown")
+    elif data == "taxas":
+        await query.edit_message_text("📊 Taxas ainda em configuração.", parse_mode="Markdown")
+    else:
+        await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
+
+# ✅ genérico só pega o que não é edit_ ou toggle_
+application.add_handler(CallbackQueryHandler(generic_callback, pattern="^(?!edit_|toggle_).+"))
 
 
 # =========================================================
