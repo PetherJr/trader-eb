@@ -59,6 +59,12 @@ class Estrategia(Base):
     descricao = Column(String, nullable=True)
     ativa = Column(Boolean, default=True)
 
+class Taxa(Base):
+    __tablename__ = "taxas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, unique=True, nullable=False)
+    valor = Column(String, nullable=False)  # ex.: "80%" ou "1.5"
 
 
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)

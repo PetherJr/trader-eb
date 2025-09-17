@@ -7,7 +7,8 @@ from licenciamento.controle import controle_bp
 from licenciamento.admin_auth import admin_auth_bp, login_manager
 from licenciamento.admin_planos import admin_planos_bp
 from licenciamento.admin_estrategias import admin_estrategias_bp
-from licenciamento.db import SessionLocal, Estrategia, init_db  # 👈 import da tabela
+from licenciamento.admin_taxas import admin_taxas_bp
+from licenciamento.db import SessionLocal, Estrategia, Taxa, init_db  # 👈 agora importa Estrategia e Taxa
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -47,6 +48,7 @@ app.register_blueprint(controle_bp)
 app.register_blueprint(admin_auth_bp)
 app.register_blueprint(admin_estrategias_bp)  # painel de estratégias
 app.register_blueprint(admin_planos_bp)
+app.register_blueprint(admin_taxas_bp)  # painel de taxas
 
 # Config login Flask
 login_manager.init_app(app)
@@ -127,7 +129,19 @@ async def generic_callback(update, context):
         await query.edit_message_text(msg)
 
     elif data == "taxas":
-        await query.edit_message_text("📊 Taxas ainda em configuração.", parse_mode="Markdown")
+        init_db()
+        db = SessionLocal()
+        taxas = db.query(Taxa).all()
+        db.close()
+
+        if taxas:
+            msg = "📊 Taxas cadastradas:\n\n"
+            for t in taxas:
+                msg += f"- {t.nome}: {t.valor}\n"
+        else:
+            msg = "⚠️ Nenhuma taxa cadastrada ainda."
+
+        await query.edit_message_text(msg)
 
     else:
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
