@@ -33,6 +33,9 @@ from bot import (
     EDIT_PAYOUT,
 )
 
+# =========================================================
+# Flask
+# =========================================================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key")
 
@@ -63,19 +66,6 @@ application.add_handler(CommandHandler("menu", menu_handler))
 application.add_handler(CommandHandler("plano", plano))
 application.add_handler(CommandHandler("config", config))
 
-# Conversações para edição de configs
-conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(callback_handler)],
-    states={
-        EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
-        EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
-        EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
-        EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
-    },
-    fallbacks=[],
-)
-application.add_handler(conv_handler)
-
 
 # =========================================================
 # Callback genérico para botões do menu
@@ -99,8 +89,24 @@ async def generic_callback(update, context):
     else:
         await query.edit_message_text(f"⚠️ Botão '{query.data}' não implementado.")
 
-# registra handler global
+# Registra handler genérico primeiro
 application.add_handler(CallbackQueryHandler(generic_callback))
+
+
+# =========================================================
+# Conversações do /config (apenas botões edit/toggle)
+# =========================================================
+conv_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(callback_handler, pattern="^(edit_|toggle_)")],
+    states={
+        EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
+        EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
+        EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
+        EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
+    },
+    fallbacks=[],
+)
+application.add_handler(conv_handler)
 
 
 # =========================================================
