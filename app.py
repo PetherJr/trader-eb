@@ -76,22 +76,6 @@ application.add_handler(CommandHandler("config", config))
 
 
 # =========================================================
-# Conversações do /config (apenas botões edit/toggle)
-# =========================================================
-conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(callback_handler, pattern="^(edit_|toggle_)")],
-    states={
-        EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
-        EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
-        EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
-        EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
-    },
-    fallbacks=[],
-)
-application.add_handler(conv_handler)
-
-
-# =========================================================
 # Funções auxiliares de sinais
 # =========================================================
 async def iniciar_agendamento(update, context):
@@ -196,13 +180,24 @@ async def generic_callback(update, context):
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
 
 
-# Conversa de sinais
-sinais_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(iniciar_agendamento, pattern="^agendar_sinais$")],
-    states={AGENDAR_SINAIS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_lista_sinais)]},
+# =========================================================
+# Conversa unificada (/config + agendar sinais)
+# =========================================================
+conv_handler = ConversationHandler(
+    entry_points=[
+        CallbackQueryHandler(callback_handler, pattern="^(edit_|toggle_)"),
+        CallbackQueryHandler(iniciar_agendamento, pattern="^agendar_sinais$")
+    ],
+    states={
+        EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
+        EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
+        EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
+        EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
+        AGENDAR_SINAIS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_lista_sinais)],
+    },
     fallbacks=[],
 )
-application.add_handler(sinais_handler)
+application.add_handler(conv_handler)
 
 # Handler genérico para outros botões
 application.add_handler(CallbackQueryHandler(generic_callback, pattern="^(?!edit_|toggle_|agendar_sinais).+"))
