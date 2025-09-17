@@ -74,6 +74,10 @@ async def generic_callback(update, context):
     query = update.callback_query
     await query.answer()
 
+    # Ignora botões que pertencem ao /config
+    if query.data.startswith("edit_") or query.data.startswith("toggle_"):
+        return
+
     if query.data == "sinais_ao_vivo":
         await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo* (em breve).", parse_mode="Markdown")
     elif query.data == "agendar_sinais":
@@ -81,7 +85,7 @@ async def generic_callback(update, context):
     elif query.data == "sinais_agendados":
         await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.", parse_mode="Markdown")
     elif query.data == "config":
-        await config(update, context)  # reaproveita função existente
+        await config(update, context)
     elif query.data == "estrategias":
         await query.edit_message_text("🧠 Estratégias disponíveis em breve.", parse_mode="Markdown")
     elif query.data == "taxas":
@@ -89,7 +93,7 @@ async def generic_callback(update, context):
     else:
         await query.edit_message_text(f"⚠️ Botão '{query.data}' não implementado.")
 
-# Registra handler genérico primeiro
+# Registra handler genérico
 application.add_handler(CallbackQueryHandler(generic_callback))
 
 
@@ -97,7 +101,9 @@ application.add_handler(CallbackQueryHandler(generic_callback))
 # Conversações do /config (apenas botões edit/toggle)
 # =========================================================
 conv_handler = ConversationHandler(
-    entry_points=[CallbackQueryHandler(callback_handler, pattern="^(edit_|toggle_)")],
+    entry_points=[
+        CallbackQueryHandler(callback_handler, pattern="^(edit_|toggle_)")
+    ],
     states={
         EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
         EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
