@@ -57,11 +57,13 @@ BASE_URL = os.getenv("BASE_URL", "https://trader-eb-1.onrender.com")
 
 application = Application.builder().token(BOT_TOKEN).build()
 
+# Handlers principais
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("menu", menu_handler))
 application.add_handler(CommandHandler("plano", plano))
 application.add_handler(CommandHandler("config", config))
 
+# Conversações para edição de configs
 conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(callback_handler)],
     states={
@@ -74,7 +76,36 @@ conv_handler = ConversationHandler(
 )
 application.add_handler(conv_handler)
 
+
+# =========================================================
+# Callback genérico para botões do menu
+# =========================================================
+async def generic_callback(update, context):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "sinais_ao_vivo":
+        await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo* (em breve).", parse_mode="Markdown")
+    elif query.data == "agendar_sinais":
+        await query.edit_message_text("🗓️ Função *Agendar Sinais* ainda em desenvolvimento.", parse_mode="Markdown")
+    elif query.data == "sinais_agendados":
+        await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.", parse_mode="Markdown")
+    elif query.data == "config":
+        await config(update, context)  # reaproveita função existente
+    elif query.data == "estrategias":
+        await query.edit_message_text("🧠 Estratégias disponíveis em breve.", parse_mode="Markdown")
+    elif query.data == "taxas":
+        await query.edit_message_text("📊 Taxas ainda em configuração.", parse_mode="Markdown")
+    else:
+        await query.edit_message_text(f"⚠️ Botão '{query.data}' não implementado.")
+
+# registra handler global
+application.add_handler(CallbackQueryHandler(generic_callback))
+
+
+# =========================================================
 # Loop assíncrono dedicado
+# =========================================================
 _app_loop = None
 
 def _bot_loop_worker():
