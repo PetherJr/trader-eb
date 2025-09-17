@@ -95,13 +95,14 @@ async def iniciar_agendamento(update, context):
         "GBP/JPY 14:10 PUT",
         parse_mode="Markdown",
     )
-    return AGENDAR_SINAIS
+    return AGENDAR_SINAIS   # <- garante que entra no estado
 
 async def receber_lista_sinais(update, context):
     identificador = update.effective_user.username or str(update.effective_user.id)
     linhas = (update.message.text or "").strip().splitlines()
 
     db = SessionLocal()
+    adicionados = 0
     for linha in linhas:
         try:
             partes = linha.split()
@@ -116,12 +117,17 @@ async def receber_lista_sinais(update, context):
                 direcao=direcao.upper(),
                 expiracao=expiracao,
             ))
+            adicionados += 1
         except Exception:
             continue
     db.commit()
     db.close()
 
-    await update.message.reply_text("✅ Sinais agendados com sucesso!")
+    if adicionados > 0:
+        await update.message.reply_text(f"✅ {adicionados} sinais agendados com sucesso!")
+    else:
+        await update.message.reply_text("⚠️ Nenhum sinal válido foi encontrado. Tente novamente.")
+
     return ConversationHandler.END
 
 async def listar_sinais(update, context):
@@ -171,7 +177,7 @@ application.add_handler(conv_config)
 conv_sinais = ConversationHandler(
     entry_points=[CallbackQueryHandler(iniciar_agendamento, pattern=r"^agendar_sinais$")],
     states={
-        AGENDAR_SINAIS: [MessageHandler(filters.TEXT & ~filters.COMMAND, receber_lista_sinais)],
+        AGENDAR_SINAIS: [MessageHandler(filters.ALL & ~filters.COMMAND, receber_lista_sinais)],
     },
     fallbacks=[CommandHandler("cancel", cancelar)],
     per_message=False,
