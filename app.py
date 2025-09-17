@@ -46,7 +46,6 @@ from bot import (
 
 # -----------------------------
 # Estados extras (sinais)
-# NÃO use range(1) – use um valor simples
 AGENDAR_SINAIS = 100
 # -----------------------------
 
@@ -103,24 +102,24 @@ async def receber_lista_sinais(update, context):
     linhas = (update.message.text or "").strip().splitlines()
 
     db = SessionLocal()
-    try:
-        for linha in linhas:
-            try:
-                partes = linha.split()
-                if len(partes) < 3:
-                    continue
-                par, horario, direcao = partes[0], partes[1], partes[2]
-                expiracao = partes[3] if len(partes) > 3 else None
-                db.add(Sinal(
-                    usuario=identificador,
-                    par=par,
-                    horario=horario,
-                    direcao=direcao.upper(),
-                    expiracao=expiracao,
-                ))
-        db.commit()
-    finally:
-        db.close()
+    for linha in linhas:
+        try:
+            partes = linha.split()
+            if len(partes) < 3:
+                continue
+            par, horario, direcao = partes[0], partes[1], partes[2]
+            expiracao = partes[3] if len(partes) > 3 else None
+            db.add(Sinal(
+                usuario=identificador,
+                par=par,
+                horario=horario,
+                direcao=direcao.upper(),
+                expiracao=expiracao,
+            ))
+        except Exception:
+            continue
+    db.commit()
+    db.close()
 
     await update.message.reply_text("✅ Sinais agendados com sucesso!")
     return ConversationHandler.END
@@ -128,10 +127,8 @@ async def receber_lista_sinais(update, context):
 async def listar_sinais(update, context):
     identificador = update.effective_user.username or str(update.effective_user.id)
     db = SessionLocal()
-    try:
-        sinais = db.query(Sinal).filter(Sinal.usuario == identificador, Sinal.ativo == True).all()
-    finally:
-        db.close()
+    sinais = db.query(Sinal).filter(Sinal.usuario == identificador, Sinal.ativo == True).all()
+    db.close()
 
     if not sinais:
         await update.callback_query.edit_message_text("⚠️ Nenhum sinal agendado no momento.")
@@ -142,7 +139,7 @@ async def listar_sinais(update, context):
         msg += f"- {s.par} {s.horario} {s.direcao} {s.expiracao or ''}\n"
     await update.callback_query.edit_message_text(msg)
 
-# Fallback universal para sair de conversas
+# Fallback universal
 async def cancelar(update, context):
     if update.callback_query:
         await update.callback_query.answer()
@@ -152,8 +149,7 @@ async def cancelar(update, context):
     return ConversationHandler.END
 
 # =========================================================
-# Conversação do /config (edit_/toggle_)
-#   ⚠️ per_message=False e allow_reentry=True resolvem o “travar”
+# Conversa do /config (edit_/toggle_)
 # =========================================================
 conv_config = ConversationHandler(
     entry_points=[CallbackQueryHandler(callback_handler, pattern=r"^(edit_|toggle_)")],
@@ -164,14 +160,13 @@ conv_config = ConversationHandler(
         EDIT_PAYOUT:    [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
     },
     fallbacks=[CommandHandler("cancel", cancelar)],
-    per_message=False,         # ✅ essencial p/ inline keyboard
-    allow_reentry=True,        # ✅ permite reentrar na mesma conversa
+    per_message=False,
+    allow_reentry=True,
 )
 application.add_handler(conv_config)
 
 # =========================================================
-# Conversação “Agendar Sinais”
-#   Também com per_message=False e allow_reentry=True
+# Conversa “Agendar Sinais”
 # =========================================================
 conv_sinais = ConversationHandler(
     entry_points=[CallbackQueryHandler(iniciar_agendamento, pattern=r"^agendar_sinais$")],
@@ -201,16 +196,13 @@ async def generic_callback(update, context):
         await listar_sinais(update, context)
 
     elif data == "config":
-        # Reaproveita o /config já existente
         await config(update, context)
 
     elif data == "estrategias":
         init_db()
         db = SessionLocal()
-        try:
-            estrategias = db.query(Estrategia).all()
-        finally:
-            db.close()
+        estrategias = db.query(Estrategia).all()
+        db.close()
 
         if estrategias:
             msg = "🧠 Estratégias disponíveis:\n\n"
@@ -227,10 +219,8 @@ async def generic_callback(update, context):
     elif data == "taxas":
         init_db()
         db = SessionLocal()
-        try:
-            taxas = db.query(Taxa).all()
-        finally:
-            db.close()
+        taxas = db.query(Taxa).all()
+        db.close()
 
         if taxas:
             msg = "📊 Taxas cadastradas:\n\n"
@@ -244,7 +234,7 @@ async def generic_callback(update, context):
     else:
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
 
-# Handler genérico – ignora padrões cuidadores das conversas
+# Handler genérico
 application.add_handler(CallbackQueryHandler(
     generic_callback,
     pattern=r"^(?!edit_|toggle_|agendar_sinais).+"
