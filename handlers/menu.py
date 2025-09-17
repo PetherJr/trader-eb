@@ -9,7 +9,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🛠️ Configurações", callback_data='config')],
         [InlineKeyboardButton("🧠 Estratégias", callback_data='estrategias')],
         [InlineKeyboardButton("📊 Taxas", callback_data='taxas')],
-        [InlineKeyboardButton("🛒 Renovar Assinatura", url="https://hotmart.com")]
+        [InlineKeyboardButton("🛒 Renovar Assinatura", url="https://hotmart.com")]  # link placeholder
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)

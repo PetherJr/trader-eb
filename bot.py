@@ -1,30 +1,15 @@
 import requests
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
-    MessageHandler,
-    filters,
-)
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CommandHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config.settings import BOT_TOKEN
-from handlers.menu import menu_handler
-from licenciamento.db import SessionLocal, ConfigUsuario, Plano, init_db
+from licenciamento.db import SessionLocal, ConfigUsuario, init_db, Plano
 
-# 🔗 URL do backend hospedado no Render
+# URL do backend hospedado no Render
 BASE_URL = "https://trader-eb-1.onrender.com"
 
-# Estados para edição
-(
-    EDIT_VALOR,
-    EDIT_STOP_WIN,
-    EDIT_STOP_LOSS,
-    EDIT_PAYOUT,
-) = range(4)
-
-
-# 🚀 Comando /start
+# =========================================================
+# /start
+# =========================================================
 async def start(update, context):
     user = update.effective_user
     identificador = user.username or str(user.id)
@@ -65,13 +50,14 @@ async def start(update, context):
         await update.message.reply_text(f"❌ Erro ao verificar licença: {e}")
 
 
-# 🚀 Comando /plano
+# =========================================================
+# /plano
+# =========================================================
 async def plano(update, context):
     user = update.effective_user
     identificador = user.username or str(user.id)
 
     try:
-        # Consulta status da licença
         response = requests.get(f"{BASE_URL}/verificar/{identificador}")
         data = response.json()
         status = data["status"]
@@ -86,7 +72,7 @@ async def plano(update, context):
         else:
             msg = "❌ Você não possui nenhuma licença ativa."
 
-        # 🔎 Busca os planos no banco
+        # Buscar planos no banco
         db = SessionLocal()
         planos = db.query(Plano).all()
         db.close()
@@ -95,7 +81,6 @@ async def plano(update, context):
             await update.message.reply_text(msg + "\n\n⚠️ Nenhum plano configurado ainda.")
             return
 
-        # Gera botões dinamicamente
         keyboard = [
             [InlineKeyboardButton(f"📅 {p.nome}", url=p.link_hotmart)]
             for p in planos
@@ -108,7 +93,9 @@ async def plano(update, context):
         await update.message.reply_text(f"❌ Erro ao verificar plano: {e}")
 
 
-# 🚀 Comando /config
+# =========================================================
+# /config
+# =========================================================
 async def config(update, context):
     user = update.effective_user
     identificador = user.username or str(user.id)
@@ -148,7 +135,11 @@ async def config(update, context):
     await update.message.reply_text(msg, reply_markup=reply_markup)
 
 
-# 🚀 Callback para editar configs
+# =========================================================
+# Callbacks e States do /config
+# =========================================================
+from telegram import Update
+
 async def callback_handler(update: Update, context):
     query = update.callback_query
     await query.answer()
@@ -171,7 +162,6 @@ async def callback_handler(update: Update, context):
         await query.edit_message_text("🎯 Soros atualizado! Use /config para ver as alterações.")
         return
 
-    # Estados que exigem input do usuário
     db.close()
     if query.data == "edit_valor":
         await query.edit_message_text("💰 Digite o novo valor inicial:")
@@ -186,10 +176,7 @@ async def callback_handler(update: Update, context):
         await query.edit_message_text("📊 Digite o novo Payout mínimo (%):")
         return EDIT_PAYOUT
 
-    return ConversationHandler.END
 
-
-# 🚀 Handlers para salvar inputs do usuário
 async def salvar_valor(update, context):
     identificador = update.effective_user.username or str(update.effective_user.id)
     novo_valor = int(update.message.text)
@@ -246,31 +233,5 @@ async def salvar_payout(update, context):
     return ConversationHandler.END
 
 
-def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-
-    # Comandos
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("menu", menu_handler))
-    app.add_handler(CommandHandler("plano", plano))
-    app.add_handler(CommandHandler("config", config))
-
-    # Conversações para editar configs
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(callback_handler)],
-        states={
-            EDIT_VALOR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
-            EDIT_STOP_WIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
-            EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
-            EDIT_PAYOUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
-        },
-        fallbacks=[],
-    )
-    app.add_handler(conv_handler)
-
-    print("🤖 Bot rodando...")
-    app.run_polling()
-
-
-if __name__ == "__main__":
-    main()
+# Estados da conversação
+EDIT_VALOR, EDIT_STOP_WIN, EDIT_STOP_LOSS, EDIT_PAYOUT = range(4)
