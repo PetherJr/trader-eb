@@ -33,6 +33,11 @@ from bot import (
     EDIT_PAYOUT,
 )
 
+from licenciamento.db import SessionLocal, Plano  # usado no generic_callback
+
+# =========================================================
+# Flask
+# =========================================================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev_secret_key")
 
@@ -84,20 +89,37 @@ async def generic_callback(update, context):
     query = update.callback_query
     await query.answer()
 
+    db = SessionLocal()
+
     if query.data == "sinais_ao_vivo":
-        await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo* (em breve).", parse_mode="Markdown")
+        await query.edit_message_text("📡 Você clicou em *Sinais ao Vivo*.\n(Função em breve integrando sinais ao vivo)", parse_mode="Markdown")
+
     elif query.data == "agendar_sinais":
-        await query.edit_message_text("🗓️ Função *Agendar Sinais* ainda em desenvolvimento.", parse_mode="Markdown")
+        await query.edit_message_text("🗓️ Função *Agendar Sinais* em breve permitirá enviar lista de sinais.", parse_mode="Markdown")
+
     elif query.data == "sinais_agendados":
-        await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.", parse_mode="Markdown")
+        await query.edit_message_text("🗂️ Nenhum sinal agendado no momento.\n(Placeholder até integração completa)", parse_mode="Markdown")
+
     elif query.data == "config":
-        await config(update, context)  # reaproveita função existente
+        await config(update, context)
+
     elif query.data == "estrategias":
-        await query.edit_message_text("🧠 Estratégias disponíveis em breve.", parse_mode="Markdown")
+        estrategias = db.query(Plano).all()
+        if estrategias:
+            msg = "🧠 Estratégias disponíveis:\n\n"
+            for e in estrategias:
+                msg += f"- {e.nome}\n"
+        else:
+            msg = "⚠️ Nenhuma estratégia configurada ainda no painel admin."
+        await query.edit_message_text(msg)
+
     elif query.data == "taxas":
-        await query.edit_message_text("📊 Taxas ainda em configuração.", parse_mode="Markdown")
+        await query.edit_message_text("📊 As taxas ainda não foram configuradas.\n(Será integrado ao painel admin)", parse_mode="Markdown")
+
     else:
         await query.edit_message_text(f"⚠️ Botão '{query.data}' não implementado.")
+
+    db.close()
 
 # registra handler global
 application.add_handler(CallbackQueryHandler(generic_callback))
