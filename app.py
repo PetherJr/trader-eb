@@ -2,6 +2,8 @@ import os
 import threading
 import asyncio
 from flask import Flask, request
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
 
 # Blueprints e auth
 from licenciamento.webhook import webhook_bp
@@ -296,6 +298,25 @@ application.add_handler(CallbackQueryHandler(
 ))
 
 # =========================================================
+# Executor automático de sinais (APScheduler)
+# =========================================================
+async def processar_sinais():
+    agora = datetime.now().strftime("%H:%M")
+    db = SessionLocal()
+    sinais = db.query(Sinal).filter(Sinal.ativo == True, Sinal.horario == agora).all()
+
+    for sinal in sinais:
+        sinal.ativo = False
+        db.commit()
+        try:
+            msg = f"🚀 Executando sinal: {sinal.par} {sinal.horario} {sinal.direcao} {sinal.expiracao or ''}"
+            await application.bot.send_message(chat_id=sinal.usuario, text=msg)
+        except Exception as e:
+            print(f"❌ Erro ao enviar sinal para {sinal.usuario}: {e}")
+
+    db.close()
+
+# =========================================================
 # Loop assíncrono dedicado (thread) + webhook
 # =========================================================
 _app_loop = None
@@ -313,6 +334,12 @@ def _bot_loop_worker():
         print(f"🔗 Webhook configurado no Telegram: {wh_url}")
 
     _app_loop.run_until_complete(_startup())
+
+    # Inicia o scheduler
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(lambda: asyncio.run_coroutine_threadsafe(processar_sinais(), _app_loop), 'interval', minutes=1)
+    scheduler.start()
+
     print("🤖 Bot inicializado (modo webhook).")
     _app_loop.run_forever()
 
