@@ -15,7 +15,7 @@ from licenciamento.admin_taxas import admin_taxas_bp
 from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, init_db
 
 # Telegram
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -95,7 +95,7 @@ async def iniciar_agendamento(update, context):
         "GBP/JPY 14:10 PUT",
         parse_mode="Markdown",
     )
-    return AGENDAR_SINAIS   # <- garante que entra no estado
+    return AGENDAR_SINAIS
 
 async def receber_lista_sinais(update, context):
     identificador = update.effective_user.username or str(update.effective_user.id)
@@ -141,9 +141,54 @@ async def listar_sinais(update, context):
         return
 
     msg = "🗂️ Sinais agendados:\n\n"
+    keyboard = []
+
     for s in sinais:
         msg += f"- {s.par} {s.horario} {s.direcao} {s.expiracao or ''}\n"
-    await update.callback_query.edit_message_text(msg)
+        keyboard.append([InlineKeyboardButton(f"❌ {s.par} {s.horario}", callback_data=f"del_sinal_{s.id}")])
+
+    # botão apagar todos
+    keyboard.append([InlineKeyboardButton("🗑️ Apagar todos", callback_data="del_all_sinais")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.callback_query.edit_message_text(msg, reply_markup=reply_markup)
+
+# Excluir todos os sinais
+async def excluir_todos_sinais(update, context):
+    query = update.callback_query
+    await query.answer()
+    identificador = query.from_user.username or str(query.from_user.id)
+
+    db = SessionLocal()
+    db.query(Sinal).filter(Sinal.usuario == identificador).delete()
+    db.commit()
+    db.close()
+
+    await query.edit_message_text("🗑️ Todos os sinais foram apagados com sucesso!")
+
+# Excluir sinal específico
+async def excluir_sinal(update, context):
+    query = update.callback_query
+    await query.answer()
+    data = query.data  # ex.: "del_sinal_5"
+
+    try:
+        sinal_id = int(data.split("_")[-1])
+    except Exception:
+        await query.edit_message_text("⚠️ Erro ao identificar o sinal.")
+        return
+
+    db = SessionLocal()
+    sinal = db.query(Sinal).filter(Sinal.id == sinal_id).first()
+    if sinal:
+        db.delete(sinal)
+        db.commit()
+        resposta = f"🗑️ Sinal {sinal.par} {sinal.horario} {sinal.direcao} apagado."
+    else:
+        resposta = "⚠️ Sinal não encontrado."
+    db.close()
+
+    await query.edit_message_text(resposta)
 
 # Fallback universal
 async def cancelar(update, context):
@@ -240,10 +285,14 @@ async def generic_callback(update, context):
     else:
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
 
+# Handlers extras para exclusão
+application.add_handler(CallbackQueryHandler(excluir_todos_sinais, pattern=r"^del_all_sinais$"))
+application.add_handler(CallbackQueryHandler(excluir_sinal, pattern=r"^del_sinal_\d+$"))
+
 # Handler genérico
 application.add_handler(CallbackQueryHandler(
     generic_callback,
-    pattern=r"^(?!edit_|toggle_|agendar_sinais).+"
+    pattern=r"^(?!edit_|toggle_|agendar_sinais|del_sinal_|del_all_sinais).+"
 ))
 
 # =========================================================
