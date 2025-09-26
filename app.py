@@ -4,6 +4,7 @@ import asyncio
 from flask import Flask, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
+from pytz import timezone
 
 # Blueprints e auth
 from licenciamento.webhook import webhook_bp
@@ -100,7 +101,7 @@ async def iniciar_agendamento(update, context):
     return AGENDAR_SINAIS
 
 async def receber_lista_sinais(update, context):
-    identificador = update.effective_user.username or str(update.effective_user.id)
+    identificador = str(update.effective_user.id)
     linhas = (update.message.text or "").strip().splitlines()
 
     db = SessionLocal()
@@ -301,7 +302,10 @@ application.add_handler(CallbackQueryHandler(
 # Executor automático de sinais (APScheduler)
 # =========================================================
 async def processar_sinais():
-    agora = datetime.now().strftime("%H:%M")
+    # Pega hora/minuto de Brasília
+    tz = timezone("America/Sao_Paulo")
+    agora = datetime.now(tz).strftime("%H:%M")
+
     db = SessionLocal()
     sinais = db.query(Sinal).filter(Sinal.ativo == True, Sinal.horario == agora).all()
 
@@ -310,7 +314,7 @@ async def processar_sinais():
         db.commit()
         try:
             msg = f"🚀 Executando sinal: {sinal.par} {sinal.horario} {sinal.direcao} {sinal.expiracao or ''}"
-            await application.bot.send_message(chat_id=sinal.usuario, text=msg)
+            await application.bot.send_message(chat_id=int(sinal.usuario), text=msg)
         except Exception as e:
             print(f"❌ Erro ao enviar sinal para {sinal.usuario}: {e}")
 

@@ -6,3 +6,4 @@ SQLAlchemy
 Flask-Login
 hypercorn
 APScheduler
+pytz
