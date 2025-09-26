@@ -5,6 +5,9 @@ from flask import Flask, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from pytz import timezone
+from licenciamento.db import Resultado
+from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, Resultado, init_db
+
 
 # Blueprints e auth
 from licenciamento.webhook import webhook_bp
@@ -285,8 +288,33 @@ async def generic_callback(update, context):
 
         await query.edit_message_text(msg)
 
+    elif data == "resultados":
+        init_db()
+        db = SessionLocal()
+        user_id = str(query.from_user.id)
+        resultados = (
+            db.query(Resultado)
+            .filter(Resultado.usuario == user_id)
+            .order_by(Resultado.id.desc())
+            .limit(5)
+            .all()
+        )
+        total = db.query(Resultado).filter(Resultado.usuario == user_id).count()
+        db.close()
+
+        if not resultados:
+            await query.edit_message_text("📊 Nenhum resultado registrado ainda.")
+            return
+
+        msg = f"📊 Resultados:\n\nTotal executados: {total}\n\nÚltimos sinais:\n"
+        for r in resultados:
+            msg += f"- {r.par} {r.horario} {r.direcao} ({r.status})\n"
+
+        await query.edit_message_text(msg)
+
     else:
         await query.edit_message_text(f"⚠️ Botão '{data}' não implementado.")
+
 
 # Handlers extras para exclusão
 application.add_handler(CallbackQueryHandler(excluir_todos_sinais, pattern=r"^del_all_sinais$"))
@@ -310,11 +338,24 @@ async def processar_sinais():
     sinais = db.query(Sinal).filter(Sinal.ativo == True, Sinal.horario == agora).all()
 
     for sinal in sinais:
-        sinal.ativo = False
+        sinal.ativo = False  # marca como executado
         db.commit()
         try:
             msg = f"🚀 Executando sinal: {sinal.par} {sinal.horario} {sinal.direcao} {sinal.expiracao or ''}"
             await application.bot.send_message(chat_id=int(sinal.usuario), text=msg)
+
+            # salva no histórico de resultados
+            resultado = Resultado(
+                usuario=sinal.usuario,
+                par=sinal.par,
+                horario=sinal.horario,
+                direcao=sinal.direcao,
+                expiracao=sinal.expiracao,
+                status="executado"
+            )
+            db.add(resultado)
+            db.commit()
+
         except Exception as e:
             print(f"❌ Erro ao enviar sinal para {sinal.usuario}: {e}")
 
