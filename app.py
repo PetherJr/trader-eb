@@ -17,9 +17,6 @@ from licenciamento.admin_planos import admin_planos_bp
 from licenciamento.admin_estrategias import admin_estrategias_bp
 from licenciamento.admin_taxas import admin_taxas_bp
 
-# DB e modelos usados nos botões
-from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, init_db
-
 # Telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (

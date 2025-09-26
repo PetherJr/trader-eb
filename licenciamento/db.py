@@ -76,6 +76,19 @@ class Sinal(Base):
     direcao = Column(String, nullable=False)  # CALL ou PUT
     expiracao = Column(String, nullable=True) # ex.: 5m
     ativo = Column(Boolean, default=True)
+    
+class Resultado(Base):
+    __tablename__ = "resultados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario = Column(String, nullable=False)   # chat_id numérico do Telegram
+    par = Column(String, nullable=False)       # ex.: EUR/USD
+    horario = Column(String, nullable=False)   # ex.: 11:37
+    direcao = Column(String, nullable=False)   # CALL ou PUT
+    expiracao = Column(String, nullable=True)  # ex.: 5m
+    status = Column(String, default="executado")  # depois pode ser "vitória", "derrota"
+
+
 
 
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)
