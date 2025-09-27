@@ -1,6 +1,9 @@
 # Usa imagem oficial do Python 3.11
 FROM python:3.11-slim
 
+# Instala git e ferramentas de build (necessárias para iqoptionapi e libs compiladas)
+RUN apt-get update && apt-get install -y git build-essential && rm -rf /var/lib/apt/lists/*
+
 # Define diretório de trabalho
 WORKDIR /app
 
