@@ -9,6 +9,9 @@ from iqoptionapi.stable_api import IQ_Option
 from licenciamento.db import CredencialCorretora
 from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, Resultado, CredencialCorretora, init_db
 
+# Cria as tabelas no banco se ainda não existirem
+init_db()
+
 # Blueprints e auth
 from licenciamento.webhook import webhook_bp
 from licenciamento.controle import controle_bp
