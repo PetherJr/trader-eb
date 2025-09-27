@@ -5,10 +5,9 @@ from flask import Flask, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from pytz import timezone
-from licenciamento.db import Resultado
-from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, Resultado, init_db
 from iqoptionapi.stable_api import IQ_Option
 from licenciamento.db import CredencialCorretora
+from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, Resultado, CredencialCorretora, init_db
 
 # Blueprints e auth
 from licenciamento.webhook import webhook_bp
