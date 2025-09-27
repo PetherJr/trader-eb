@@ -7,4 +7,4 @@ Flask-Login
 hypercorn
 APScheduler
 pytz
-iqoptionapi
+git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git
