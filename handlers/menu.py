@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
+        [InlineKeyboardButton("⚡ Conectar Corretora", callback_data="conectar_corretora")]
         [InlineKeyboardButton("📡 Sinais ao Vivo", callback_data="sinais_ao_vivo")],
         [InlineKeyboardButton("🗓️ Agendar Sinais", callback_data="agendar_sinais")],
         [InlineKeyboardButton("📂 Sinais Agendados", callback_data="sinais_agendados")],

@@ -7,7 +7,8 @@ from datetime import datetime
 from pytz import timezone
 from licenciamento.db import Resultado
 from licenciamento.db import SessionLocal, Estrategia, Taxa, Sinal, Resultado, init_db
-
+from iqoptionapi.stable_api import IQ_Option
+from licenciamento.db import CredencialCorretora
 
 # Blueprints e auth
 from licenciamento.webhook import webhook_bp
@@ -51,6 +52,7 @@ from bot import (
 # Estados extras (sinais)
 AGENDAR_SINAIS = 100
 # -----------------------------
+SALVAR_CREDENCIAIS = 200
 
 # =========================================================
 # Flask
@@ -99,6 +101,46 @@ async def iniciar_agendamento(update, context):
         parse_mode="Markdown",
     )
     return AGENDAR_SINAIS
+
+async def iniciar_conexao_corretora(update, context):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        "⚡ Envie suas credenciais no formato:\n\nemail;senha;demo/real\n\nExemplo:\nmeuemail@gmail.com;minhasenha;demo"
+    )
+    return SALVAR_CREDENCIAIS
+
+async def salvar_credenciais(update, context):
+    identificador = str(update.effective_user.id)
+    partes = update.message.text.split(";")
+    if len(partes) < 3:
+        await update.message.reply_text("⚠️ Formato inválido. Use: email;senha;demo/real")
+        return ConversationHandler.END
+
+    email, senha, tipo = partes
+    conta_demo = True if tipo.strip().lower() == "demo" else False
+
+    db = SessionLocal()
+    cred = db.query(CredencialCorretora).filter(CredencialCorretora.usuario == identificador).first()
+    if cred:
+        cred.email = email.strip()
+        cred.senha = senha.strip()
+        cred.conta_demo = conta_demo
+    else:
+        cred = CredencialCorretora(
+            usuario=identificador,
+            corretora="iqoption",
+            email=email.strip(),
+            senha=senha.strip(),
+            conta_demo=conta_demo
+        )
+        db.add(cred)
+    db.commit()
+    db.close()
+
+    await update.message.reply_text("✅ Credenciais salvas com sucesso!")
+    return ConversationHandler.END
+
 
 async def receber_lista_sinais(update, context):
     identificador = str(update.effective_user.id)
@@ -205,19 +247,15 @@ async def cancelar(update, context):
 # =========================================================
 # Conversa do /config (edit_/toggle_)
 # =========================================================
-conv_config = ConversationHandler(
-    entry_points=[CallbackQueryHandler(callback_handler, pattern=r"^(edit_|toggle_)")],
-    states={
-        EDIT_VALOR:     [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_valor)],
-        EDIT_STOP_WIN:  [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_win)],
-        EDIT_STOP_LOSS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_stop_loss)],
-        EDIT_PAYOUT:    [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_payout)],
-    },
+conv_credenciais = ConversationHandler(
+    entry_points=[CallbackQueryHandler(iniciar_conexao_corretora, pattern=r"^conectar_corretora$")],
+    states={SALVAR_CREDENCIAIS: [MessageHandler(filters.TEXT & ~filters.COMMAND, salvar_credenciais)]},
     fallbacks=[CommandHandler("cancel", cancelar)],
     per_message=False,
     allow_reentry=True,
 )
-application.add_handler(conv_config)
+application.add_handler(conv_credenciais)
+
 
 # =========================================================
 # Conversa “Agendar Sinais”
@@ -327,7 +365,6 @@ application.add_handler(CallbackQueryHandler(
 # Executor automático de sinais (APScheduler)
 # =========================================================
 async def processar_sinais():
-    # Pega hora/minuto de Brasília
     tz = timezone("America/Sao_Paulo")
     agora = datetime.now(tz).strftime("%H:%M")
 
@@ -335,10 +372,28 @@ async def processar_sinais():
     sinais = db.query(Sinal).filter(Sinal.ativo == True, Sinal.horario == agora).all()
 
     for sinal in sinais:
-        sinal.ativo = False  # marca como executado
+        sinal.ativo = False
         db.commit()
+
+        cred = db.query(CredencialCorretora).filter(CredencialCorretora.usuario == sinal.usuario).first()
+
+        if not cred:
+            await application.bot.send_message(chat_id=int(sinal.usuario), text="⚠️ Nenhuma credencial salva.")
+            continue
+
         try:
-            msg = f"🚀 Executando sinal: {sinal.par} {sinal.horario} {sinal.direcao} {sinal.expiracao or ''}"
+            Iq = IQ_Option(cred.email, cred.senha)
+            Iq.connect()
+            tipo_conta = "PRACTICE" if cred.conta_demo else "REAL"
+            Iq.change_balance(tipo_conta)
+
+            status, order_id = Iq.buy_digital_spot(sinal.par.replace("/", ""), 1, sinal.direcao.lower(), 1)
+
+            if status:
+                msg = f"🚀 Ordem enviada: {sinal.par} {sinal.horario} {sinal.direcao} ({'demo' if cred.conta_demo else 'real'})"
+            else:
+                msg = f"❌ Falha ao enviar ordem para {sinal.par}"
+
             await application.bot.send_message(chat_id=int(sinal.usuario), text=msg)
 
             # salva no histórico de resultados
@@ -354,9 +409,10 @@ async def processar_sinais():
             db.commit()
 
         except Exception as e:
-            print(f"❌ Erro ao enviar sinal para {sinal.usuario}: {e}")
+            await application.bot.send_message(chat_id=int(sinal.usuario), text=f"❌ Erro ao conectar: {e}")
 
     db.close()
+
 
 # =========================================================
 # Loop assíncrono dedicado (thread) + webhook

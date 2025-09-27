@@ -88,6 +88,17 @@ class Resultado(Base):
     expiracao = Column(String, nullable=True)  # ex.: 5m
     status = Column(String, default="executado")  # depois pode ser "vitória", "derrota"
 
+class CredencialCorretora(Base):
+    __tablename__ = "credenciais_corretoras"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario = Column(String, unique=True, nullable=False)  # chat_id numérico
+    corretora = Column(String, nullable=False, default="iqoption")
+    email = Column(String, nullable=False)
+    senha = Column(String, nullable=False)
+    conta_demo = Column(Boolean, default=True)  # True = demo, False = real
+
+
 
 
 
