@@ -104,12 +104,25 @@ class CredencialCorretora(Base):
 
 # 🚀 Função para criar as tabelas no banco (caso não existam ainda)
 def init_db():
-    # Cria as tabelas se ainda não existirem
     Base.metadata.create_all(bind=engine)
 
-    # Garantir que a coluna is_trial exista na tabela licencas
     with engine.connect() as conn:
+        # Garante coluna extra na tabela de licenças
         conn.execute(
             text("ALTER TABLE licencas ADD COLUMN IF NOT EXISTS is_trial BOOLEAN DEFAULT FALSE;")
         )
+        # Garante a tabela credenciais_corretoras
+        conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS credenciais_corretoras (
+                id SERIAL PRIMARY KEY,
+                usuario VARCHAR UNIQUE NOT NULL,
+                corretora VARCHAR NOT NULL DEFAULT 'iqoption',
+                email VARCHAR NOT NULL,
+                senha VARCHAR NOT NULL,
+                conta_demo BOOLEAN DEFAULT TRUE
+            )
+            """)
+        )
         conn.commit()
+
