@@ -91,6 +91,43 @@ application.add_handler(CommandHandler("plano", plano))
 application.add_handler(CommandHandler("config", config))
 
 # =========================================================
+# Teste manual da integração com IQ Option
+# =========================================================
+async def teste_iq(update, context):
+    identificador = str(update.effective_user.id)
+    db = SessionLocal()
+    cred = db.query(CredencialCorretora).filter(CredencialCorretora.usuario == identificador).first()
+    db.close()
+
+    if not cred:
+        await update.message.reply_text("⚠️ Nenhuma credencial salva. Use /menu → ⚡ Conectar Corretora.")
+        return
+
+    try:
+        Iq = IQ_Option(cred.email, cred.senha)
+        Iq.connect()
+        tipo_conta = "PRACTICE" if cred.conta_demo else "REAL"
+        Iq.change_balance(tipo_conta)
+
+        # Ordem de 0.5 USD em EUR/USD CALL, expiração 1 minuto
+        status, order_id = Iq.buy_digital_spot("EURUSD", 0.5, "call", 1)
+
+        if status:
+            msg = f"✅ Ordem de TESTE enviada!\nPar: EUR/USD\nConta: {'Demo' if cred.conta_demo else 'Real'}"
+        else:
+            msg = f"❌ Falha ao enviar ordem de teste."
+
+        await update.message.reply_text(msg)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Erro ao conectar: {e}")
+
+
+# Registrar comando
+application.add_handler(CommandHandler("teste_iq", teste_iq))
+
+
+# =========================================================
 # Funções auxiliares para /sinais
 # =========================================================
 async def iniciar_agendamento(update, context):
