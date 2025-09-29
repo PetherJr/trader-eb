@@ -111,7 +111,7 @@ def init_db():
         conn.execute(
             text("ALTER TABLE licencas ADD COLUMN IF NOT EXISTS is_trial BOOLEAN DEFAULT FALSE;")
         )
-        # Garante a tabela credenciais_corretoras
+        # Só cria a tabela se não existir (sem travar se já existe)
         conn.execute(
             text("""
             CREATE TABLE IF NOT EXISTS credenciais_corretoras (
@@ -125,4 +125,5 @@ def init_db():
             """)
         )
         conn.commit()
+
 
