@@ -8,7 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from pytz import timezone
 
-# IQ Option (bloqueante -> vamos rodar em executor)
+# IQ Option (bloqueante -> rodamos em executor)
 from iqoptionapi.stable_api import IQ_Option
 
 # DB e init
@@ -69,7 +69,7 @@ AGENDAR_SINAIS = 100
 SALVAR_CREDENCIAIS = 200
 # -----------------------------
 
-# Executor para isolar chamadas BLOQUEANTES (IQ Option)
+# Executor global para IQ Option (bloqueante)
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 # =========================================================
@@ -126,6 +126,7 @@ application.add_handler(conv_config)
 # Teste manual da integração com IQ Option
 # =========================================================
 async def teste_iq(update, context):
+    print("👉 Comando /teste_iq recebido de", update.effective_user.id)
     identificador = str(update.effective_user.id)
     db = SessionLocal()
     cred = db.query(CredencialCorretora).filter(CredencialCorretora.usuario == identificador).first()
@@ -142,7 +143,6 @@ async def teste_iq(update, context):
         Iq.connect()
         tipo_conta = "PRACTICE" if cred.conta_demo else "REAL"
         Iq.change_balance(tipo_conta)
-        # Ordem de 0.5 USD em EURUSD CALL 1m
         return Iq.buy_digital_spot("EURUSD", 0.5, "call", 1)
 
     try:
